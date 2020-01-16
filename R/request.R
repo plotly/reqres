@@ -439,7 +439,7 @@ Request <- R6Class('Request',
       cookies <- stri_trim_both(stri_split_regex(self$headers$Cookie, ";(?=\\s*[a-zA-Z0-9!#$%&'()*+-.\\/:<>?@\\[\\]^_`{|}~]{1,})")[[1]])
       # disallow unnamed cookies for now
       cookies <- cookies[grepl(".*[=]", cookies)]
-      cookies <- unlist(stri_split_fixed(cookies, '=', n = 2))
+      cookies <- unlist(private$with_debug(stri_split_fixed(cookies, '=', n = 2)))
       private$with_debug(structure(
         as.list(url_decode(cookies[c(FALSE, TRUE)])),
         names = cookies[c(TRUE, FALSE)]
@@ -448,7 +448,8 @@ Request <- R6Class('Request',
     with_debug = function(expr) {
       withCallingHandlers(
         tryCatch(expr, error = function(e) {
-          write(crayon::yellow$bold("COOKIE ERROR: failed to process string formatted as '", self$headers$Cookie, "'\n", sep=""), stderr())
+          write(crayon::yellow$bold("COOKIE ERROR: failed to process string formatted as '", self$headers$Cookie, "'", sep=""), stderr())
+          stop(sprintf("cookie unsuccessfully parsed by reqres: failed to process string formatted as '%s'.", self$headers$Cookie), call. = FALSE)
         }),
         warning = function(w) {
           write(crayon::yellow$bold("COOKIE WARNING: cookie string was '", self$headers$Cookie, "'\n", sep=""), stderr())
