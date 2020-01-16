@@ -135,7 +135,7 @@
 #'
 #' @importFrom R6 R6Class
 #' @importFrom assertthat assert_that is.flag has_attr is.error
-#' @importFrom stringi stri_match_first_regex stri_trim_both stri_split_fixed
+#' @importFrom stringi stri_match_first_regex stri_trim_both stri_split_fixed stri_split_regex
 #' @importFrom urltools url_decode
 #' @importFrom brotli brotli_decompress
 #' @importFrom utils modifyList
@@ -436,11 +436,28 @@ Request <- R6Class('Request',
 
     parse_cookies = function() {
       if (is.null(self$headers$Cookie)) return(list())
-      cookies <- stri_trim_both(stri_split_fixed(self$headers$Cookie, ';')[[1]])
+      cookies <- stri_trim_both(stri_split_regex(self$headers$Cookie, ";(?=\\s*[a-zA-Z0-9!#$%&'()*+-.\\/:<>?@\\[\\]^_`{|}~]{1,})")[[1]])
+      # disallow unnamed cookies for now
+      cookies <- cookies[grepl(".*[=]", cookies)]
       cookies <- unlist(stri_split_fixed(cookies, '=', n = 2))
-      structure(
+      private$with_debug(structure(
         as.list(url_decode(cookies[c(FALSE, TRUE)])),
         names = cookies[c(TRUE, FALSE)]
+      ))
+    },
+    with_debug = function(expr) {
+      withCallingHandlers(
+        tryCatch(expr, error = function(e) {
+          write(crayon::yellow$bold("COOKIE ERROR: failed to process string formatted as '", self$headers$Cookie, "'\n", sep=""), stderr())
+        }),
+        warning = function(w) {
+          write(crayon::yellow$bold("COOKIE WARNING: cookie string was '", self$headers$Cookie, "'\n", sep=""), stderr())
+          invokeRestart('muffleWarning')
+        },
+        message = function(m) {
+          write(crayon::yellow$bold("COOKIE MESSAGE: cookie string was '", self$headers$Cookie, "'\n", sep=""), stderr())
+          invokeRestart('muffleMessage')
+        }
       )
     },
     parse_query = function(query) {
